@@ -1,4 +1,9 @@
-module MyLib (someFunc) where
+module MyLib (run) where
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+import Parse
+
+run :: IO ()
+run = case parse "" "123" of
+  Left err -> print err
+  Right expr -> do
+    print expr
