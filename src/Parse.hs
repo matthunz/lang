@@ -7,6 +7,8 @@ module Parse
     getLineColumn,
     spanned,
     int,
+    BinaryOp (..),
+    binaryOp,
     Expr (..),
     parse,
   )
@@ -47,13 +49,33 @@ spanned f = do
 int :: Parser (Spanned Int)
 int = spanned (read <$> many1 digit)
 
-data Expr = IntLit (Spanned Int) deriving (Show)
+data Op = Add deriving (Show)
+
+instance ToJSON Op where
+  toJSON Add = "+"
+
+op :: Parser (Spanned Op)
+op = spanned (char '+' >> return Add)
+
+data BinaryOp = BinaryOp Expr (Spanned Op) Expr deriving (Show)
+
+instance ToJSON BinaryOp where
+  toJSON (BinaryOp l o r) = object ["lhs" .= l, "op" .= o, "rhs" .= r]
+
+binaryOp :: Parser BinaryOp
+binaryOp = try $ do
+  l <- int
+  o <- op
+  BinaryOp (IntLit l) o <$> expr
+
+data Expr = BinaryOpExpr (Spanned BinaryOp) | IntLit (Spanned Int) deriving (Show)
 
 instance ToJSON Expr where
   toJSON (IntLit (Spanned _ x)) = object ["int" .= x]
+  toJSON (BinaryOpExpr (Spanned _ x)) = object ["binary_op" .= x]
 
 expr :: Parser Expr
-expr = IntLit <$> int
+expr = BinaryOpExpr <$> spanned binaryOp <|> IntLit <$> int
 
 parse :: SourceName -> String -> Either ParseError Expr
 parse = runParser expr ()
